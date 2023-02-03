@@ -31,6 +31,7 @@
 //MASTER MASTER MASTER
 
 unsigned char voltaje1;
+unsigned char voltaje2;
 int vol1;
 int vol2;
 unsigned int unidad1; //Variable para guardar unidades del voltaje del AN0
@@ -63,11 +64,11 @@ void main(void) {
         __delay_ms(1);
         PORTCbits.RC2 = 1;
         
-        PORTCbits.RC2 = 0;
-        spiWrite(1);
-        voltaje1 = spiRead();
+        PORTDbits.RD5 = 0;
+        spiWrite(2);
+        voltaje2 = spiRead();
         __delay_ms(1);
-        PORTCbits.RC2 = 1;
+        PORTDbits.RD5 = 1;
         
         vol1 = map(voltaje1, 0, 255, 0, 100); //mapear valor del voltaje de 0 a 100
         unidad1 = (vol1*5)/100; //Separar las unidades del valor del voltaje
@@ -75,6 +76,15 @@ void main(void) {
         centesima1 = (vol1*5)%10; //Separar las centesimas del valor del voltaje
         Lcd_Set_Cursor(2,1); //Cursor en (1,7)
         sprintf(buffer, "%d.%d%dV" , unidad1 , decima1 , centesima1 ); //convertir variable a una cadena de caracteres
+        Lcd_Write_String(buffer); //Mostrar cadena de caracteres en pantalla
+        
+                
+        vol2 = map(voltaje2, 0, 255, 0, 100); //mapear valor del voltaje de 0 a 100
+        unidad2 = (vol2*5)/100; //Separar las unidades del valor del voltaje
+        decima2 = ((vol2*5)/10)%10; //Separar las decimas del valor del voltaje
+        centesima2 = (vol2*5)%10; //Separar las centesimas del valor del voltaje
+        Lcd_Set_Cursor(2,7); //Cursor en (1,7)
+        sprintf(buffer, "%d.%d%dV" , unidad2 , decima2 , centesima2 ); //convertir variable a una cadena de caracteres
         Lcd_Write_String(buffer); //Mostrar cadena de caracteres en pantalla
     }
 }

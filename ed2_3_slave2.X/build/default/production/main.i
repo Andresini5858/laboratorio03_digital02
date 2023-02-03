@@ -2752,27 +2752,6 @@ extern int sprintf(char *, const char *, ...);
 extern int printf(const char *, ...);
 # 26 "main.c" 2
 
-# 1 "./LCD.h" 1
-# 47 "./LCD.h"
-void Lcd_Port(char a);
-
-void Lcd_Cmd(char a);
-
-void Lcd_Clear(void);
-
-void Lcd_Set_Cursor(char a, char b);
-
-void Lcd_Init(void);
-
-void Lcd_Write_Char(char a);
-
-void Lcd_Write_String(char *a);
-
-void Lcd_Shift_Right(void);
-
-void Lcd_Shift_Left(void);
-# 27 "main.c" 2
-
 # 1 "./SPI.h" 1
 # 17 "./SPI.h"
 typedef enum
@@ -2805,91 +2784,88 @@ typedef enum
 
 
 void spiInit(Spi_Type, Spi_Data_Sample, Spi_Clock_Idle, Spi_Transmit_Edge);
-void spiWrite(unsigned char);
+void spiWrite(char);
 unsigned spiDataReady();
-unsigned char spiRead();
-# 28 "main.c" 2
+char spiRead();
+# 27 "main.c" 2
 
 
 
 
 
 unsigned char voltaje1;
-unsigned char voltaje2;
-int vol1;
-int vol2;
-unsigned int unidad1;
-unsigned int decima1;
-unsigned int centesima1;
-unsigned int unidad2;
-unsigned int decima2;
-unsigned int centesima2;
-char buffer[20];
+int var;
 
 void setup(void);
-int map(unsigned char value, int inputmin, int inputmax, int outmin, int outmax){
+void setupADC(void);
+int map(int value, int inputmin, int inputmax, int outmin, int outmax){
     return ((value - inputmin)*(outmax-outmin)) / (inputmax-inputmin)+outmin;}
 
 void main(void) {
     setup();
-    Lcd_Init();
-
-    Lcd_Set_Cursor(1,7);
-    Lcd_Write_String("S2:");
-    Lcd_Set_Cursor(1,1);
-    Lcd_Write_String("S1:");
-    Lcd_Set_Cursor(1,14);
-    Lcd_Write_String("S3:");
-    _delay((unsigned long)((1000)*(4000000/4000.0)));
+    setupADC();
     while(1){
-        PORTCbits.RC2 = 0;
-        spiWrite(1);
-        voltaje1 = spiRead();
-        _delay((unsigned long)((1)*(4000000/4000.0)));
-        PORTCbits.RC2 = 1;
+        ADCON0bits.GO = 1;
+    }
+}
 
-        PORTDbits.RD5 = 0;
-        spiWrite(2);
-        voltaje2 = spiRead();
-        _delay((unsigned long)((1)*(4000000/4000.0)));
-        PORTDbits.RD5 = 1;
+void __attribute__((picinterrupt(("")))) isr(void){
+    if (PIR1bits.ADIF == 1){
 
-        vol1 = map(voltaje1, 0, 255, 0, 100);
-        unidad1 = (vol1*5)/100;
-        decima1 = ((vol1*5)/10)%10;
-        centesima1 = (vol1*5)%10;
-        Lcd_Set_Cursor(2,1);
-        sprintf(buffer, "%d.%d%dV" , unidad1 , decima1 , centesima1 );
-        Lcd_Write_String(buffer);
-
-
-        vol2 = map(voltaje2, 0, 255, 0, 100);
-        unidad2 = (vol2*5)/100;
-        decima2 = ((vol2*5)/10)%10;
-        centesima2 = (vol2*5)%10;
-        Lcd_Set_Cursor(2,7);
-        sprintf(buffer, "%d.%d%dV" , unidad2 , decima2 , centesima2 );
-        Lcd_Write_String(buffer);
+        if (ADCON0bits.CHS == 0b0000){
+            voltaje1 = ADRESH;
+            ADCON0bits.CHS = 0b0000;
+        }
+        PIR1bits.ADIF = 0;
+    }
+    if (PIR1bits.SSPIF == 1){
+        var = spiRead();
+        if (var == 2){
+            spiWrite(voltaje1);
+            PIR1bits.SSPIF = 0;
+        }
     }
 }
 
 void setup(void){
-    ANSEL = 0;
+    ANSELbits.ANS0 = 1;
+    ANSELbits.ANS4 = 0;
     ANSELH = 0;
 
-    TRISCbits.TRISC2 = 0;
-    TRISDbits.TRISD5 = 0;
+    TRISAbits.TRISA5 = 1;
     TRISB = 0;
     TRISD = 0;
+
     PORTB = 0;
     PORTD = 0;
-    PORTCbits.RC2 = 1;
-    PORTDbits.RD5 = 1;
+
+    INTCONbits.GIE = 1;
+    INTCONbits.PEIE = 1;
+    PIE1bits.ADIE = 1;
+    PIR1bits.SSPIF = 0;
+    PIE1bits.SSPIE = 1;
 
     OSCCONbits.IRCF2 = 1;
     OSCCONbits.IRCF1 = 1;
     OSCCONbits.IRCF0 = 0;
     OSCCONbits.SCS = 1;
+    spiInit(SPI_SLAVE_SS_EN, SPI_DATA_SAMPLE_MIDDLE, SPI_CLOCK_IDLE_LOW, SPI_IDLE_2_ACTIVE);
+}
 
-    spiInit(SPI_MASTER_OSC_DIV4, SPI_DATA_SAMPLE_MIDDLE, SPI_CLOCK_IDLE_LOW, SPI_IDLE_2_ACTIVE);
+void setupADC(void){
+    ADCON0bits.ADCS1 = 0;
+    ADCON0bits.ADCS0 = 1;
+
+    ADCON1bits.VCFG1 = 0;
+    ADCON1bits.VCFG0 = 0;
+
+    ADCON1bits.ADFM = 0;
+
+    ADCON0bits.CHS3 = 0;
+    ADCON0bits.CHS2 = 0;
+    ADCON0bits.CHS1 = 0;
+    ADCON0bits.CHS0 = 0;
+
+    ADCON0bits.ADON = 1;
+    _delay((unsigned long)((100)*(4000000/4000000.0)));
 }
