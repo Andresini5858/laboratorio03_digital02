@@ -77,8 +77,7 @@ void main(void) {
         Lcd_Set_Cursor(2,1); //Cursor en (1,7)
         sprintf(buffer, "%d.%d%dV" , unidad1 , decima1 , centesima1 ); //convertir variable a una cadena de caracteres
         Lcd_Write_String(buffer); //Mostrar cadena de caracteres en pantalla
-        
-                
+               
         vol2 = map(voltaje2, 0, 255, 0, 100); //mapear valor del voltaje de 0 a 100
         unidad2 = (vol2*5)/100; //Separar las unidades del valor del voltaje
         decima2 = ((vol2*5)/10)%10; //Separar las decimas del valor del voltaje
