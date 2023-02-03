@@ -68,7 +68,7 @@ void Lcd_Init(void) {
     Lcd_Cmd(0x03);
     __delay_ms(5);
     Lcd_Cmd(0x03);
-    __delay_ms(11);
+    __delay_us(200);
     Lcd_Cmd(0x03);
     Lcd_Cmd(0x02);
     Lcd_Cmd(0x02);
