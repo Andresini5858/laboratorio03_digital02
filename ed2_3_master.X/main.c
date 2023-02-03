@@ -63,6 +63,12 @@ void main(void) {
         __delay_ms(1);
         PORTCbits.RC2 = 1;
         
+        PORTCbits.RC2 = 0;
+        spiWrite(1);
+        voltaje1 = spiRead();
+        __delay_ms(1);
+        PORTCbits.RC2 = 1;
+        
         vol1 = map(voltaje1, 0, 255, 0, 100); //mapear valor del voltaje de 0 a 100
         unidad1 = (vol1*5)/100; //Separar las unidades del valor del voltaje
         decima1 = ((vol1*5)/10)%10; //Separar las decimas del valor del voltaje
@@ -78,11 +84,13 @@ void setup(void){
     ANSELH = 0; //Puertos como I/O digitales
     
     TRISCbits.TRISC2 = 0;
+    TRISDbits.TRISD5 = 0;
     TRISB = 0;
     TRISD = 0;
     PORTB = 0;
     PORTD = 0;
     PORTCbits.RC2 = 1;
+    PORTDbits.RD5 = 1;
     
     OSCCONbits.IRCF2 = 1; //Oscilador interno a 4MHz
     OSCCONbits.IRCF1 = 1;
