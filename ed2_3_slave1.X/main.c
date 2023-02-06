@@ -1,5 +1,5 @@
 /*
- * File:   main.c
+ * File:   main_slave_1.c
  * Author: Andres Lemus
  *
  * Created on February 1, 2023, 10:15 PM
@@ -24,68 +24,97 @@
 #include <xc.h>
 #include <stdint.h>
 #include <stdio.h>
-#include "SPI.h"
+#include "SPI.h" //Libería SPI
 
 #define _XTAL_FREQ 4000000 //Frecuencia 4MHz
 //SLAVE1 SLAVE1 SLAVE1
 
-unsigned char voltaje1;
-int var;
+unsigned char var; //Variable para decidir que dato enviar
+unsigned char voltaje1 = 0; //Variable para guardar voltaje del potenciómetro
+unsigned char contador = 0; //Variable para guardar contador
+unsigned char bandera = 0; //Variable para antirrebote
 
-void setup(void);
-void setupADC(void);
-int map(int value, int inputmin, int inputmax, int outmin, int outmax){ //función para mapear valores
-    return ((value - inputmin)*(outmax-outmin)) / (inputmax-inputmin)+outmin;}
+void setup(void); //Función de configuración
+void setupADC(void); //Función de configuración del ADC
 
 void main(void) {
-    setup();
-    setupADC();
-    while(1){
-        ADCON0bits.GO = 1;    
+    setup(); //Llamar a configuración
+    setupADC(); //Llamar a configuración del ADC
+    while(1){ //LOOP
+        ADCON0bits.GO = 1; //Iniciar conversión ADC   
     }
 }
 
-void __interrupt() isr(void){ //
-    if (PIR1bits.ADIF == 1){
-        
-        if (ADCON0bits.CHS == 0b0000){
-            voltaje1 = ADRESH;
-            ADCON0bits.CHS = 0b0000;
+void __interrupt() isr(void){ //Interrupciones
+    if (PIR1bits.ADIF == 1){ //Revisar si es interrupción del ADC
+        if (ADCON0bits.CHS == 0b0000){ //Verificar el canal AN0
+            voltaje1 = ADRESH; //Guardar valor de ADRESH
+            ADCON0bits.CHS = 0b0000; //Canal AN0
         }
-        PIR1bits.ADIF = 0;
+        PIR1bits.ADIF = 0; //Limpiar bandera
     }
-    if (PIR1bits.SSPIF == 1){
-        var = spiRead();
-        if (var == 1){
-            spiWrite(voltaje1);
-            PIR1bits.SSPIF = 0;
+    if (PIR1bits.SSPIF == 1){ //Revisar si es interrupción del SPI
+        var = spiRead(); //Leer variable para decidir que dato enviar
+        if (var == 1){ //Si se recibe 1 enviar contador 
+            spiWrite(contador); //Enviar contador
+        }
+        else if (var == 3){ //Si se recibe 3 enviar voltaje
+            spiWrite(voltaje1); //Enviar valor del potenciómetro
+        }
+        PIR1bits.SSPIF = 0; //Limpiar bandera 
+    }
+    if (INTCONbits.RBIF == 1){ //Revisar si es interrupción del puerto B
+        INTCONbits.RBIF = 0; //Limpiar bandera
+        if (PORTBbits.RB7 == 0){ //Revisar si se presionó boton de RB7
+            bandera = 1; //bandera en 1
+        }
+        if (PORTBbits.RB7 == 1 && bandera == 1){ //Revisar si se soltó el botón
+            contador++; //Aumentar contador
+            bandera = 0; //Limpiar bandera
+        }
+        if (PORTBbits.RB6 == 0){ //Revisar si se presionó boton de RB6
+            bandera = 2; //Bandera en 2
+        }
+        if (PORTBbits.RB6 == 1 && bandera == 2){ //Revisar si ya se soltó el botón
+            contador--; //Decrementar contador
+            bandera = 0; //bandera en 0
         }
     }
 }
 
 void setup(void){
-    ANSELbits.ANS0 = 1;
-    ANSELbits.ANS4 = 0;
-    ANSELH = 0;
+    ANSELbits.ANS0 = 1; //Canal AN0 como entrada analógica
+    ANSELbits.ANS4 = 0; //Pin A5 como pin digital
+    ANSELH = 0; //Puertos como I/O digitales
     
-    TRISAbits.TRISA5 = 1;
-    TRISB = 0;
-    TRISD = 0;
+    TRISAbits.TRISA5 = 1; //Puerto A5 como entrada
+    TRISBbits.TRISB7 = 1; //Puerto B6 como entrada
+    TRISBbits.TRISB6 = 1; //Puerto B7 como entrada
+    TRISD = 0; //Puerto D como salida
     
-    PORTB = 0;
-    PORTD = 0;
+    PORTB = 0; //Limpiar Puerto B
+    PORTD = 0; //Limpiar Puerto D
+    
+    OPTION_REGbits.nRBPU = 0; //Pull-ups activos
+    IOCBbits.IOCB7 = 1; //Activar interrupt-onchange del pin B7
+    IOCBbits.IOCB6 = 1; //Activar interrupt-onchange del pin B6
+    
+    WPUBbits.WPUB7 = 1; //Activar pull-up del pin B7
+    WPUBbits.WPUB6 = 1; //Activar pull-up del pin B6
     
     INTCONbits.GIE = 1; //Activar interrupciones globales
     INTCONbits.PEIE = 1; //Activar interrupciones periféricas
+    INTCONbits.RBIE = 1; //Activar interrupción del puerto B
+    INTCONbits.RBIF = 0; //Limpiar bandera
     PIE1bits.ADIE = 1; // Habiliar interrupcion del conversor ADC
-    PIR1bits.SSPIF = 0;
-    PIE1bits.SSPIE = 1;
+    PIR1bits.SSPIF = 0; //Limpiar bandera de interrupción del SPI
+    PIE1bits.SSPIE = 1; //Activar bandera del SPI
     
     OSCCONbits.IRCF2 = 1; //Oscilador interno a 4MHz
     OSCCONbits.IRCF1 = 1;
     OSCCONbits.IRCF0 = 0;
     OSCCONbits.SCS = 1; //Utilizar oscilador interno
-    spiInit(SPI_SLAVE_SS_EN, SPI_DATA_SAMPLE_MIDDLE, SPI_CLOCK_IDLE_LOW, SPI_IDLE_2_ACTIVE);
+    spiInit(SPI_SLAVE_SS_EN, SPI_DATA_SAMPLE_END, SPI_CLOCK_IDLE_LOW, SPI_IDLE_2_ACTIVE); //Función de configuración del SPI
 }
 
 void setupADC(void){

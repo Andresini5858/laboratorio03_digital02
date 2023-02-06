@@ -25,29 +25,31 @@
 #include <stdint.h>
 #include <stdio.h>
 #include "LCD.h" //librería LCD
-#include "SPI.h"
+#include "SPI.h" //librería SPI
 
 #define _XTAL_FREQ 4000000 //Frecuencia 4MHz
 //MASTER MASTER MASTER
 
-unsigned char voltaje1;
-unsigned char voltaje2;
-int vol1;
-int vol2;
+unsigned char voltaje1; //Variable para guardar valor del voltaje del potenciómetro 1
+unsigned char voltaje2; //Variable para guardar valor del voltaje del potenciómetro 2
+unsigned char contador = 0; //Variable para guardar valor del voltaje del potenciómetro 2
+int vol1; //Variable para guardar valor del voltaje del potenciómetro 1 mapeado
+int vol2; //Variable para guardar valor del voltaje del potenciómetro 2 mapeado
 unsigned int unidad1; //Variable para guardar unidades del voltaje del AN0
 unsigned int decima1; //Variable para guardar decimas del voltaje del AN0
 unsigned int centesima1; //Variable para guardar centesimas del voltaje del AN0
 unsigned int unidad2; //Variable para guardar unidades del voltaje del AN1
 unsigned int decima2; //Variable para guardar decimas del voltaje del AN1
 unsigned int centesima2; //Variable para guardar centesimas del voltaje del AN0
-char buffer[20];
+char buffer[20]; //Arreglo para guardar valores de voltajes
+char buffer1[20]; //Arreglo para guardar valor de contador
 
-void setup(void);
+void setup(void); //Función de setup
 int map(unsigned char value, int inputmin, int inputmax, int outmin, int outmax){ //función para mapear valores
     return ((value - inputmin)*(outmax-outmin)) / (inputmax-inputmin)+outmin;}
 
 void main(void) {
-    setup();
+    setup(); //Llamar al setup
     Lcd_Init(); //Iniciar pantalla LCD
     
     Lcd_Set_Cursor(1,7); //Cursor en (1,7)
@@ -55,20 +57,35 @@ void main(void) {
     Lcd_Set_Cursor(1,1); //Cursor en (1,1)
     Lcd_Write_String("S1:"); //Escribir S1 en pantalla
     Lcd_Set_Cursor(1,14); //Cursor en (1,14)
-    Lcd_Write_String("S3:"); //Escribir S3 en pantalla
-    __delay_ms(1000);
-    while(1){
-        PORTCbits.RC2 = 0;
-        spiWrite(1);
-        voltaje1 = spiRead();
-        __delay_ms(1);
-        PORTCbits.RC2 = 1;
+    Lcd_Write_String("S3:"); //Escribir S3 en pantalla  
+    while(1){ //Loop
         
-        PORTDbits.RD5 = 0;
-        spiWrite(2);
-        voltaje2 = spiRead();
-        __delay_ms(1);
-        PORTDbits.RD5 = 1;
+        PORTCbits.RC2 = 0; //Iniciar comunicación con esclavo 1 
+        __delay_ms(1); //delay de 1ms
+
+        spiWrite(1); //Enviar un 1 al esclavo para solicitar datos del potenciómetro
+        voltaje1 = spiRead(); // Leer valor de voltaje del potenciómetro del esclavo 1
+         
+        __delay_ms(1); //delay de 1ms
+        PORTCbits.RC2 = 1; //Terminar comunicación con esclavo 1
+        
+        PORTCbits.RC2 = 0; //Iniciar comunicación con esclavo 1 
+        __delay_ms(1); //delay de 1ms
+        
+        spiWrite(3); //Enviar un 1 al esclavo para solicitar datos del contador
+        contador = spiRead(); //Leer datos del contador
+        
+        __delay_ms(1); //delay de 1ms
+        PORTCbits.RC2 = 1; //Terminar comunicación con esclavo 1
+        
+        PORTDbits.RD5 = 0; //Iniciar comunicación con esclavo 2 
+        __delay_ms(1); //delay de 1ms
+        
+        spiWrite(2); //Enviar un 2 al esclavo 2 para solicitar datos del potenciómetro
+        voltaje2 = spiRead(); //Leer datos del contador
+        
+        __delay_ms(1); //delay de 1ms
+        PORTDbits.RD5 = 1; //Terminar comunicación con esclavo 2 
         
         vol1 = map(voltaje1, 0, 255, 0, 100); //mapear valor del voltaje de 0 a 100
         unidad1 = (vol1*5)/100; //Separar las unidades del valor del voltaje
@@ -85,6 +102,28 @@ void main(void) {
         Lcd_Set_Cursor(2,7); //Cursor en (1,7)
         sprintf(buffer, "%d.%d%dV" , unidad2 , decima2 , centesima2 ); //convertir variable a una cadena de caracteres
         Lcd_Write_String(buffer); //Mostrar cadena de caracteres en pantalla
+        
+        if (contador >= 0 && contador < 10){
+            Lcd_Set_Cursor(2,16); //Cursor en (2,16)
+            sprintf(buffer1, "%d" , contador); //convertir variable a una cadena de caracteres
+            Lcd_Write_String(buffer1); //Mostrar cadena de caracteres en pantalla
+            Lcd_Set_Cursor(2,14); //Cursor en (2,14)
+            Lcd_Write_Char('0'); //Mostrar 0 en pantalla
+            Lcd_Set_Cursor(2,15); //Cursor en (2,15)
+            Lcd_Write_Char('0'); //Mostrar 0 en pantalla
+        }
+        else if (contador > 9 && contador < 100){
+            Lcd_Set_Cursor(2,15); //Cursor en (2,15)
+            sprintf(buffer1, "%d" , contador); //convertir variable a una cadena de caracteres
+            Lcd_Write_String(buffer1); //Mostrar cadena de caracteres en pantalla
+            Lcd_Set_Cursor(2,14); //Cursor en (2,14)
+            Lcd_Write_Char('0'); //Mostrar 0 en pantalla
+        }
+        else {
+            Lcd_Set_Cursor(2,14); //Cursor en (2,14)
+            sprintf(buffer1, "%d" , contador); //convertir variable a una cadena de caracteres
+            Lcd_Write_String(buffer1); //Mostrar cadena de caracteres en pantalla
+        }
     }
 }
 
@@ -92,19 +131,21 @@ void setup(void){
     ANSEL = 0; //Puertos como I/O digitales
     ANSELH = 0; //Puertos como I/O digitales
     
-    TRISCbits.TRISC2 = 0;
-    TRISDbits.TRISD5 = 0;
-    TRISB = 0;
-    TRISD = 0;
-    PORTB = 0;
-    PORTD = 0;
-    PORTCbits.RC2 = 1;
-    PORTDbits.RD5 = 1;
+    TRISCbits.TRISC2 = 0; //PIN C2 como salida
+    TRISDbits.TRISD5 = 0; //PIN D5 como salida
+    TRISDbits.TRISD6 = 0; //PIN D6 como salida
+    TRISDbits.TRISD7 = 0; //PIN D7 como salida
+    TRISB = 0; //Puerto B como salida
+    PORTB = 0; //Limpiar puerto B
+    PORTD = 0; //Limpiar Puerto D
+    PORTDbits.RD6 = 0; //Limpiar pin D6
+    PORTDbits.RD7 = 0; //Limpiar pin D7
+    PORTCbits.RC2 = 1; //Mantener apagado puerto de cominucación de esclavo 1
+    PORTDbits.RD5 = 1; //Mantener apagado puerto de cominucación de esclavo 2
     
     OSCCONbits.IRCF2 = 1; //Oscilador interno a 4MHz
     OSCCONbits.IRCF1 = 1;
     OSCCONbits.IRCF0 = 0;
     OSCCONbits.SCS = 1; //Utilizar oscilador interno
     
-    spiInit(SPI_MASTER_OSC_DIV4, SPI_DATA_SAMPLE_MIDDLE, SPI_CLOCK_IDLE_LOW, SPI_IDLE_2_ACTIVE);
-}
+    spiInit(SPI_MASTER_OSC_DIV4, SPI_DATA_SAMPLE_END, SPI_CLOCK_IDLE_LOW, SPI_IDLE_2_ACTIVE); //Función Librería de Setup de comunicación de ISP
